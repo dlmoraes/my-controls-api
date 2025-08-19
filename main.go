@@ -1,15 +1,16 @@
 package main
 
 import (
+	"log"
+	"os"
+	"strings" // 1. Garanta que o pacote 'strings' está importado
+
 	"my-controls-api/config"
 	"my-controls-api/handlers"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
-
-	"log"
-	"os"
 )
 
 func main() {
@@ -20,10 +21,8 @@ func main() {
 
 	r := gin.Default()
 
-	// Conecta ao banco de dados
 	config.ConnectDatabase()
 
-	clientURL := os.Getenv("CLIENT_ORIGIN_URL")
 	apiURL := os.Getenv("API_BASE_URL")
 	serverPort := os.Getenv("SERVER_PORT")
 
@@ -31,21 +30,28 @@ func main() {
 		serverPort = "8085"
 	}
 
-	// Configura o CORS (Cross-Origin Resource Sharing) para permitir requisições do seu frontend
+	// 2. Leia a variável com a lista de origens do .env
+	allowedOriginsEnv := os.Getenv("ALLOWED_ORIGINS")
+	if allowedOriginsEnv == "" {
+		// Valor padrão para garantir que o desenvolvimento local funcione
+		allowedOriginsEnv = "http://localhost:5173"
+	}
+
+	// 3. Crie o slice de origens a partir da string
+	originsList := strings.Split(allowedOriginsEnv, ",")
+
 	r.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{clientURL}, // Endereço do seu frontend Next.js
+		// 4. Use a lista de origens em vez do '*'
+		AllowOrigins:     originsList,
 		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
-		AllowHeaders:     []string{"Origin", "Content-Type", "Accept"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization"},
 		AllowCredentials: true,
 	}))
 
-	// Rota para servir os arquivos estáticos da pasta /uploads
 	r.Static("/uploads", "./uploads")
 
-	// Instancia o handler com a conexão do banco
 	h := &handlers.Handler{DB: config.DB, ApiBaseURL: apiURL}
 
-	// Agrupa as rotas da API
 	api := r.Group("/api")
 	{
 		api.POST("/tsee/assignments", h.CreateAssignment)
